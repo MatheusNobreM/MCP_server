@@ -3,6 +3,7 @@
 AI backend project that combines a local LLM (Ollama), MCP tools, and SQL access for industrial operations data.
 
 Built as a practical demo of how to create a production-style assistant with:
+
 - tool calling over MCP
 - read-only SQL access with SQLAlchemy
 - persistent chat memory in SQLite
@@ -11,6 +12,7 @@ Built as a practical demo of how to create a production-style assistant with:
 ## Why this project
 
 This repository shows an end-to-end pattern for enterprise AI assistants:
+
 - keep the LLM local
 - expose controlled tools via MCP
 - enforce safe SQL access
@@ -21,21 +23,23 @@ It is useful as a portfolio project for AI Engineering, Data/Backend Engineering
 ## Architecture
 
 1. `apps/mcp_server/server.py`
-MCP server (`FastMCP`) exposing tools:
+   MCP server (`FastMCP`) exposing tools:
+
 - `run_sql(query, params, limit)`
 - `search_sop(text, top_k)`
 
 2. `apps/bot_cli/main.py`
-CLI chat client that:
+   CLI chat client that:
+
 - calls Ollama
 - executes MCP tools
 - uses retry/fallback logic when tool usage is needed
 
 3. `persistence/memory_store.py`
-Persistent memory store with SQLAlchemy + SQLite for conversation and message history.
+   Persistent memory store with SQLAlchemy + SQLite for conversation and message history.
 
 4. `scripts/seed_factory_db.py`
-Creates and seeds a synthetic SQLite dataset for demo scenarios.
+   Creates and seeds a synthetic SQLite dataset for demo scenarios.
 
 ## Tech stack
 
@@ -100,6 +104,12 @@ sair
 ## SQL safety model
 
 `run_sql` is read-only by design:
+em aberto`
+
+## SQL safety model
+
+`run_sql` is read-only by design:
+
 - allows only `SELECT`
 - blocks `;` and DDL/DML keywords (`insert`, `update`, `delete`, `drop`, etc.)
 - opens SQLite in read-only mode (`mode=ro`)
@@ -125,7 +135,6 @@ pyproject.toml
 
 ## Next improvements
 
-- add automated tests for MCP tools and memory store
 - add Docker Compose for one-command startup
 - add web UI and observability (logs/traces/metrics)
 - add role-based SQL policies and query audit trail

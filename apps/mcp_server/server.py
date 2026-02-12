@@ -1,31 +1,22 @@
 import os
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
-from sqlalchemy import create_engine, text as sql_text
-from sqlalchemy.engine import Engine, URL
+from sqlalchemy import func, or_, select, text as sql_text
+from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
+
+from persistence.db import create_sqlite_engine, session_factory
+from persistence.models import Sop
 
 load_dotenv()
 
 DB_PATH = os.getenv("DB_PATH", "factory.db")
 
 mcp = FastMCP("Factory SQL MCP")
-
-
-def _sqlite_read_only_url(db_path: str) -> URL:
-    path = Path(db_path).expanduser()
-    normalized = path.as_posix() if path.is_absolute() else db_path.replace("\\", "/")
-    return URL.create(
-        "sqlite",
-        database=f"file:{normalized}",
-        query={"mode": "ro", "uri": "true"},
-    )
-
-
-ENGINE: Engine = create_engine(_sqlite_read_only_url(DB_PATH), pool_pre_ping=True)
+ENGINE: Engine = create_sqlite_engine(DB_PATH, read_only=True)
+SessionLocal = session_factory(ENGINE)
 
 
 def _is_safe_select(sql: str) -> bool:
@@ -90,22 +81,21 @@ def search_sop(text: str, top_k: int = 5) -> List[Dict[str, Any]]:
     if top_k < 1 or top_k > 20:
         top_k = 5
 
-    stmt = sql_text(
-        """
-        SELECT id, title, area, substr(content, 1, 160) AS snippet
-        FROM sop
-        WHERE title LIKE :q OR content LIKE :q
-        ORDER BY id DESC
-        LIMIT :k
-        """
-    )
-
     try:
-        with ENGINE.connect() as conn:
-            rows = conn.execute(
-                stmt,
-                {"q": f"%{text}%", "k": top_k},
-            ).mappings()
+        query = f"%{text}%"
+        stmt = (
+            select(
+                Sop.id,
+                Sop.title,
+                Sop.area,
+                func.substr(Sop.content, 1, 160).label("snippet"),
+            )
+            .where(or_(Sop.title.like(query), Sop.content.like(query)))
+            .order_by(Sop.id.desc())
+            .limit(top_k)
+        )
+        with SessionLocal() as session:
+            rows = session.execute(stmt).mappings()
             return [dict(row) for row in rows]
     except SQLAlchemyError as exc:
         return _error_payload(exc)
